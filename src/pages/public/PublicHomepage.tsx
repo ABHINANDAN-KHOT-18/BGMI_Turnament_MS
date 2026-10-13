@@ -8,6 +8,7 @@ import { RegistrationModal } from '../../components/tournament/RegistrationModal
 import { TournamentStore } from '../../lib/tournament-store'
 import { calculateStandingsFromResults } from '../../lib/scoring'
 import { Info } from 'lucide-react'
+import { supabase, isSupabaseConfigured } from '../../lib/supabase'
 
 export const PublicHomepage: React.FC = () => {
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false)
@@ -41,6 +42,7 @@ export const PublicHomepage: React.FC = () => {
     (m) => m.mvp_published && m.official_mvp_player_name
   )
 
+
   const handleRegisterSuccess = async (data: {
     team_name: string
     igl_name: string
@@ -49,8 +51,43 @@ export const PublicHomepage: React.FC = () => {
     player_2_bgmi_id: string
     player_3_bgmi_id: string
     player_4_bgmi_id: string
-  }) => {
-    TournamentStore.addTeamRegistration(data)
+  }): Promise<{ id: string }> => {
+    if (!isSupabaseConfigured) {
+      throw new Error(
+        'Registration service is not configured. Please try again later.'
+      )
+    }
+
+    const { data: result, error } = await supabase.rpc(
+      'register_team_squad',
+      {
+        p_team_name: data.team_name,
+        p_igl_name: data.igl_name,
+        p_igl_bgmi_uid: data.igl_bgmi_uid,
+        p_whatsapp_number: data.whatsapp_number,
+        p_player_2_bgmi_id: data.player_2_bgmi_id,
+        p_player_3_bgmi_id: data.player_3_bgmi_id,
+        p_player_4_bgmi_id: data.player_4_bgmi_id,
+      }
+    )
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    const response = result as {
+      success?: boolean
+      registration_id?: string
+      message?: string
+    } | null
+
+    if (!response?.success || !response.registration_id) {
+      throw new Error(
+        response?.message || 'Registration could not be confirmed.'
+      )
+    }
+
+    return { id: response.registration_id }
   }
 
   const approvedTeamsCount = TournamentStore.getPublicApprovedTeams().length

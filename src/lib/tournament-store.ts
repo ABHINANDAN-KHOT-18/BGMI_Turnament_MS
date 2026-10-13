@@ -230,10 +230,15 @@ export class TournamentStore {
 
   static getPublicApprovedTeams(): Omit<TeamRegistration, 'whatsapp_number'>[] {
     const teams = this.getTeams()
-    // STRICT PRIVACY: WhatsApp numbers never exposed in public queries
+
+    // Never expose WhatsApp numbers in public queries.
     return teams
-      .filter((t) => t.status === 'approved')
-      .map(({ whatsapp_number: _, ...safe }) => safe)
+      .filter((team) => team.status === 'approved')
+      .map((team) => {
+        const { whatsapp_number, ...safeTeam } = team
+        void whatsapp_number
+        return safeTeam
+      })
   }
 
   static addTeamRegistration(
@@ -388,13 +393,13 @@ export class TournamentStore {
     const updated = matches.map((m) =>
       m.id === matchId
         ? {
-            ...m,
-            official_mvp_player_id: mvpData.player_id,
-            official_mvp_player_name: mvpData.player_name,
-            official_mvp_team_id: mvpData.team_id,
-            mvp_published: mvpData.publish,
-            updated_at: new Date().toISOString(),
-          }
+          ...m,
+          official_mvp_player_id: mvpData.player_id,
+          official_mvp_player_name: mvpData.player_name,
+          official_mvp_team_id: mvpData.team_id,
+          mvp_published: mvpData.publish,
+          updated_at: new Date().toISOString(),
+        }
         : m
     )
     saveToStorage('matches', updated)

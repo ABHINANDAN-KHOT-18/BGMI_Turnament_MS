@@ -15,7 +15,7 @@ interface RegistrationModalProps {
     player_2_bgmi_id: string
     player_3_bgmi_id: string
     player_4_bgmi_id: string
-  }) => Promise<void>
+  }) => Promise<{ id: string }>
 }
 
 export const RegistrationModal: React.FC<RegistrationModalProps> = ({
@@ -42,9 +42,8 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
     setIsSubmitting(true)
     setErrorMessage(null)
     try {
-      await onSubmitSuccess(data)
-      const fakeRef = `BGMI-REG-${Math.floor(100000 + Math.random() * 900000)}`
-      setSuccessReference(fakeRef)
+      const savedTeam = await onSubmitSuccess(data)
+      setSuccessReference(`BGMI-REG-${savedTeam.id}`)
       reset()
     } catch (err: unknown) {
       if (err instanceof Error) {
