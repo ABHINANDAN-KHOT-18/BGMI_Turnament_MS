@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Lock, AlertCircle } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 
 interface AdminLoginProps {
   onLoginSuccess: (email: string) => void
@@ -11,21 +12,54 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
 
-    // For local development / prototype demo:
-    // Support admin credentials or quick demo sign in
-    setTimeout(() => {
-      if (email.trim() && password.trim().length >= 6) {
-        onLoginSuccess(email)
-      } else {
-        setError('Please provide a valid administrator email and password (min 6 chars).')
+    try {
+      const { data, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        })
+
+      if (loginError || !data.user) {
+        setError('Invalid email or password.')
+        return
       }
+
+      const { data: admin, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id, role')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (adminError || !admin) {
+        console.error('Admin authorization check failed:', {
+          code: adminError?.code,
+          message: adminError?.message,
+          details: adminError?.details,
+          hint: adminError?.hint,
+          userId: data.user.id,
+        })
+
+        await supabase.auth.signOut()
+
+        setError(
+          adminError
+            ? `Admin check failed: ${adminError.message}`
+            : 'No admin record found for this account.'
+        )
+        return
+      }
+
+      onLoginSuccess(data.user.email ?? email.trim())
+    } catch {
+      setError('Login failed. Please check your connection and try again.')
+    } finally {
       setIsLoading(false)
-    }, 400)
+    }
   }
 
   return (

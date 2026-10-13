@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
 -- 2. TOURNAMENT GLOBAL CONFIGURATION & RULES
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.tournament_settings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL DEFAULT 'BGMI CHAMPIONSHIP INVITATIONAL',
   tagline TEXT NOT NULL DEFAULT 'ROAD TO GLORY: 2-STAGE BATTLEGROUNDS',
   description TEXT NOT NULL DEFAULT 'Official professional BGMI tournament featuring Round 1 Group Stage qualifying battles and the high-stakes Round 2 Grand Final.',
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS public.tournament_settings (
 -- 3. TEAM REGISTRATIONS (Confidential contact details)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.team_registrations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_name TEXT NOT NULL UNIQUE,
   igl_name TEXT NOT NULL,
   igl_bgmi_uid TEXT NOT NULL,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS public.team_registrations (
 -- 4. ROUND 1 GROUPS
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.groups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE, -- e.g., 'Group A', 'Group B'
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS public.groups (
 -- 5. ROUND 1 GROUP ASSIGNMENTS (Single active group rule)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.group_assignments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
   team_id UUID NOT NULL REFERENCES public.team_registrations(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS public.group_assignments (
 -- 6. ROUND 2 QUALIFICATIONS (Manual qualification only)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.qualifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id UUID NOT NULL REFERENCES public.team_registrations(id) ON DELETE CASCADE,
   notes TEXT,
   created_by UUID REFERENCES auth.users(id),
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.qualifications (
 -- 7. TWO-STAGE MATCHES & ROOM CREDENTIAL PRIVACY
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.matches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   stage TEXT NOT NULL CHECK (stage IN ('round_1', 'round_2')),
   match_number INT NOT NULL,
   group_id UUID REFERENCES public.groups(id) ON DELETE SET NULL, -- Null for Round 2 matches
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS public.matches (
 -- 8. MATCH TEAM RESULTS (Exact BGMI Scoring: 10/6/2/0 + 2 pts/kill)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.match_team_results (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
   team_id UUID NOT NULL REFERENCES public.team_registrations(id) ON DELETE CASCADE,
   placement INT NOT NULL CHECK (placement >= 1),
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS public.match_team_results (
 -- 9. DEDICATED MVP SELECTIONS & PUBLICATION RECORDS
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.match_mvp_records (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
   team_id UUID NOT NULL REFERENCES public.team_registrations(id) ON DELETE CASCADE,
   player_bgmi_uid TEXT NOT NULL,
@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS public.match_mvp_records (
 );
 
 CREATE TABLE IF NOT EXISTS public.tournament_mvp_records (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_id UUID NOT NULL REFERENCES public.tournament_settings(id) ON DELETE CASCADE,
   team_id UUID NOT NULL REFERENCES public.team_registrations(id) ON DELETE CASCADE,
   player_bgmi_uid TEXT NOT NULL,
@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS public.tournament_mvp_records (
 -- 10. ADMINISTRATIVE AUDIT TRAIL
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.audit_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id),
   user_email TEXT,
   action TEXT NOT NULL,
