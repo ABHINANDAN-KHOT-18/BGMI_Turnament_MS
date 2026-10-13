@@ -1,8 +1,18 @@
-import React, { useState } from 'react'
+import React, { lazy, Suspense, useState } from 'react'
 import { Navbar } from './components/layout/Navbar'
 import { PublicHomepage } from './pages/public/PublicHomepage'
-import { AdminDashboard } from './pages/admin/AdminDashboard'
-import { AdminLogin } from './pages/admin/AdminLogin'
+
+const AdminDashboard = lazy(() =>
+  import('./pages/admin/AdminDashboard').then((m) => ({
+    default: m.AdminDashboard,
+  }))
+)
+
+const AdminLogin = lazy(() =>
+  import('./pages/admin/AdminLogin').then((m) => ({
+    default: m.AdminLogin,
+  }))
+)
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'public' | 'admin'>('public')
@@ -33,16 +43,22 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {currentView === 'public' && <PublicHomepage />}
-        {currentView === 'admin' && (
-          <>
-            {isAdminLoggedIn ? (
+        <Suspense
+          fallback={
+            <div className="min-h-[40vh] flex items-center justify-center text-sand">
+              Loading tournament panel...
+            </div>
+          }
+        >
+          {currentView === 'public' && <PublicHomepage />}
+
+          {currentView === 'admin' &&
+            (isAdminLoggedIn ? (
               <AdminDashboard onLogout={handleAdminLogout} />
             ) : (
               <AdminLogin onLoginSuccess={handleAdminLogin} />
-            )}
-          </>
-        )}
+            ))}
+        </Suspense>
       </main>
 
       {/* Global Footer */}
