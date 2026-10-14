@@ -35,22 +35,20 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         .eq('id', data.user.id)
         .maybeSingle()
 
-      if (adminError || !admin) {
+      if (
+        adminError ||
+        !admin ||
+        !['admin', 'superadmin'].includes(admin.role)
+      ) {
         console.error('Admin authorization check failed:', {
           code: adminError?.code,
           message: adminError?.message,
-          details: adminError?.details,
-          hint: adminError?.hint,
           userId: data.user.id,
         })
 
         await supabase.auth.signOut()
 
-        setError(
-          adminError
-            ? `Admin check failed: ${adminError.message}`
-            : 'No admin record found for this account.'
-        )
+        setError('Access denied: Unauthorized account or insufficient administrator privileges.')
         return
       }
 
@@ -124,7 +122,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
         <div className="pt-2 text-center">
           <p className="text-[11px] font-interface text-sand/50">
-            Demo credentials: any email + password (min 6 chars) or Supabase Auth.
+            Authorized tournament administrators only.
           </p>
         </div>
       </div>

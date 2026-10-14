@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useState } from 'react'
 import { Navbar } from './components/layout/Navbar'
 import { PublicHomepage } from './pages/public/PublicHomepage'
+import { supabase } from './lib/supabase'
+import type { Session, AuthChangeEvent } from '@supabase/supabase-js'
 
 const AdminDashboard = lazy(() =>
   import('./pages/admin/AdminDashboard').then((m) => ({
@@ -18,16 +20,94 @@ export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'public' | 'admin'>('public')
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const [adminEmail, setAdminEmail] = useState<string | null>(null)
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
+
+  // Securely verify admin session against public.admin_users
+  const verifyAdminSession = React.useCallback(async (user: { id: string; email?: string | null } | null) => {
+    if (!user) {
+      setIsAdminLoggedIn(false)
+      setAdminEmail(null)
+      setIsAuthChecking(false)
+      return
+    }
+
+    try {
+      const { data: adminRecord, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id, role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (adminError || !adminRecord || !['admin', 'superadmin'].includes(adminRecord.role)) {
+        setIsAdminLoggedIn(false)
+        setAdminEmail(null)
+      } else {
+        setIsAdminLoggedIn(true)
+        setAdminEmail(user.email ?? 'admin')
+      }
+    } catch (err) {
+      console.error('Session verification error:', err)
+      setIsAdminLoggedIn(false)
+      setAdminEmail(null)
+    } finally {
+      setIsAuthChecking(false)
+    }
+  }, [])
+
+  // Restore session on mount and listen to auth changes safely
+  React.useEffect(() => {
+    let isMounted = true
+
+    // 1. Initial session check on mount/refresh
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return
+      verifyAdminSession(session?.user ?? null)
+    }).catch(() => {
+      if (!isMounted) return
+      setIsAdminLoggedIn(false)
+      setIsAuthChecking(false)
+    })
+
+    // 2. Auth state subscription (Avoid awaiting supabase queries inside callback)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      if (!isMounted) return
+      if (event === 'SIGNED_OUT' || !session) {
+        setIsAdminLoggedIn(false)
+        setAdminEmail(null)
+        setIsAuthChecking(false)
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Defer database check to avoid deadlock inside onAuthStateChange
+        setTimeout(() => {
+          if (isMounted) {
+            verifyAdminSession(session.user)
+          }
+        }, 0)
+      }
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [verifyAdminSession])
 
   const handleAdminLogin = (email: string) => {
     setIsAdminLoggedIn(true)
     setAdminEmail(email)
   }
 
-  const handleAdminLogout = () => {
-    setIsAdminLoggedIn(false)
-    setAdminEmail(null)
-    setCurrentView('public')
+  const handleAdminLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      setIsAdminLoggedIn(false)
+      setAdminEmail(null)
+      setCurrentView('public')
+    }
   }
 
   return (
@@ -53,7 +133,14 @@ export const App: React.FC = () => {
           {currentView === 'public' && <PublicHomepage />}
 
           {currentView === 'admin' &&
-            (isAdminLoggedIn ? (
+            (isAuthChecking ? (
+              <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3 text-sand">
+                <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                <p className="font-interface text-xs uppercase tracking-widest text-sand/70">
+                  Verifying administrator credentials...
+                </p>
+              </div>
+            ) : isAdminLoggedIn ? (
               <AdminDashboard onLogout={handleAdminLogout} />
             ) : (
               <AdminLogin onLoginSuccess={handleAdminLogin} />
